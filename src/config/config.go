@@ -40,3 +40,12 @@ func Get() (*Config, error) {
 	}
 	return nil, err
 }
+
+func (hc HostConfig) GetMac() string {
+	res := ""
+	for _, k := range hc.Mac {
+		res = k
+		break
+	}
+	return res
+}
