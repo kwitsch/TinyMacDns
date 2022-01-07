@@ -2,9 +2,11 @@ package redis
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/go-redis/redis/v8"
+	"github.com/kwitsch/TinyMacDns/cache"
 	"github.com/kwitsch/TinyMacDns/config"
 )
 
@@ -13,10 +15,12 @@ type Client struct {
 	client *redis.Client
 	ctx    context.Context
 	cancel context.CancelFunc
+	hosts  *map[string]config.HostConfig
+	cache  *cache.Cache
 }
 
 // New creates a new redis client
-func New(cfg *config.RedisConfig) (*Client, error) {
+func New(cfg *config.RedisConfig, hosts *map[string]config.HostConfig, cache *cache.Cache) (*Client, error) {
 	rdb := redis.NewClient(&redis.Options{
 		Addr:            cfg.Address,
 		Username:        cfg.Username,
@@ -34,6 +38,8 @@ func New(cfg *config.RedisConfig) (*Client, error) {
 			client: rdb,
 			ctx:    ctx,
 			cancel: cancel,
+			hosts:  hosts,
+			cache:  cache,
 		}
 		return res, nil
 	}
@@ -44,4 +50,41 @@ func New(cfg *config.RedisConfig) (*Client, error) {
 // Close discards the redis client
 func (c *Client) Close() {
 	c.cancel()
+}
+
+func (c *Client) Start() {
+	go func() {
+		ticker := time.NewTicker(c.cfg.Intervall)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				c.poll()
+			case <-c.ctx.Done():
+				fmt.Println("Redis Client stop")
+				return
+			}
+		}
+	}()
+}
+
+func (c *Client) poll() {
+	for hostname, host := range *c.hosts {
+		c.pollHost(hostname, host)
+	}
+}
+
+func (c *Client) pollHost(hostname string, host config.HostConfig) {
+	found := false
+	for _, mac := range host.Mac {
+		ip, err := c.client.Get(c.ctx, mac).Result()
+		if err == nil {
+			c.cache.Update(hostname, ip)
+			found = true
+			break
+		}
+	}
+	if !found {
+		c.cache.Delete(hostname)
+	}
 }
