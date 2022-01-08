@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"time"
 
 	. "github.com/kwitsch/go-dockerutils/config"
@@ -36,16 +37,26 @@ func Get() (*Config, error) {
 
 		res.Redis.Verbose = res.Verbose
 
+		if res.Verbose {
+			logHosts(res.Hosts)
+		}
+
 		return &res, nil
 	}
+
 	return nil, err
 }
 
-func (hc HostConfig) GetMac() string {
-	res := ""
-	for _, k := range hc.Mac {
-		res = k
-		break
+func logHosts(hosts map[string]HostConfig) {
+	fmt.Println("Configured hosts:")
+	for k, v := range hosts {
+		macs := ""
+		for _, m := range v.Mac {
+			if len(macs) > 0 {
+				macs += ", "
+			}
+			macs += m
+		}
+		fmt.Println("-", k, ":", macs)
 	}
-	return res
 }

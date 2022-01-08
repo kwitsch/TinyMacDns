@@ -10,16 +10,18 @@ import (
 )
 
 type Server struct {
-	udp   *dns.Server
-	cache *cache.Cache
-	ttl   uint32
+	udp     *dns.Server
+	cache   *cache.Cache
+	ttl     uint32
+	verbose bool
 }
 
-func New(cache *cache.Cache, ttl int) *Server {
+func New(cache *cache.Cache, ttl int, verbose bool) *Server {
 	res := &Server{
-		udp:   createUDPServer(),
-		cache: cache,
-		ttl:   uint32(ttl),
+		udp:     createUDPServer(),
+		cache:   cache,
+		ttl:     uint32(ttl),
+		verbose: verbose,
 	}
 
 	handler := res.udp.Handler.(*dns.ServeMux)
@@ -33,6 +35,7 @@ func (s *Server) Start() {
 		err := s.udp.ListenAndServe()
 		if err != nil {
 			fmt.Println("Server.Start error", err)
+			panic(err)
 		}
 	}()
 }
@@ -43,7 +46,7 @@ func (s *Server) Stop() error {
 
 func createUDPServer() *dns.Server {
 	return &dns.Server{
-		Addr:    "53",
+		Addr:    ":53",
 		Net:     "udp",
 		Handler: dns.NewServeMux(),
 		NotifyStartedFunc: func() {
@@ -57,7 +60,9 @@ const rdnsSuf string = ".in-addr.arpa"
 
 func (s *Server) OnRequest(w dns.ResponseWriter, request *dns.Msg) {
 	q := request.Question[0]
-
+	if s.verbose {
+		fmt.Println("Requst:", q.Name, "Type:", q.Qtype)
+	}
 	m := new(dns.Msg)
 	m.SetReply(request)
 

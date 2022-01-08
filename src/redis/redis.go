@@ -2,6 +2,7 @@ package redis
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/go-redis/redis/v8"
@@ -50,6 +51,10 @@ func (c *Client) Close() {
 }
 
 func (c *Client) Poll(hosts *map[string]config.HostConfig) {
+	if c.cfg.Verbose {
+		fmt.Println("redis.Client.Poll")
+	}
+
 	for hostname, host := range *hosts {
 		c.pollHost(hostname, host)
 	}
@@ -59,13 +64,21 @@ func (c *Client) pollHost(hostname string, host config.HostConfig) {
 	found := false
 	for _, mac := range host.Mac {
 		ip, err := c.client.Get(c.ctx, mac).Result()
-		if err == redis.Nil {
+		if err == nil {
+			if c.cfg.Verbose {
+				fmt.Println("redis.Client.pollhost", hostname, "=", ip)
+			}
 			c.cache.Update(hostname, ip)
 			found = true
 			break
+		} else {
+			fmt.Println(err)
 		}
 	}
 	if !found {
+		if c.cfg.Verbose {
+			fmt.Println("redis.Client.pollhost", hostname, "not found")
+		}
 		c.cache.Delete(hostname)
 	}
 }

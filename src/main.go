@@ -21,7 +21,9 @@ func main() {
 
 		redis, rErr := redis.New(&cfg.Redis, cache)
 		if rErr == nil {
-			server := server.New(cache, int(cfg.Redis.Intervall.Seconds()))
+			fmt.Println("Server starting")
+
+			server := server.New(cache, int(cfg.Redis.Intervall.Seconds()), cfg.Verbose)
 			server.Start()
 
 			ticker := time.NewTicker(cfg.Redis.Intervall)
@@ -29,12 +31,14 @@ func main() {
 			intChan := make(chan os.Signal, 1)
 			signal.Notify(intChan, os.Interrupt)
 
+			redis.Poll(&cfg.Hosts)
+
 			for {
 				select {
 				case <-ticker.C:
 					redis.Poll(&cfg.Hosts)
 				case <-intChan:
-					fmt.Println("Collector stopping")
+					fmt.Println("Server stopping")
 					server.Stop()
 					ticker.Stop()
 					redis.Close()
