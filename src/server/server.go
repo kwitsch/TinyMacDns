@@ -28,8 +28,17 @@ func New(cache *cache.Cache, ttl int) *Server {
 	return res
 }
 
-func (s *Server) Start() error {
-	return s.udp.ListenAndServe()
+func (s *Server) Start() {
+	go func() {
+		err := s.udp.ListenAndServe()
+		if err != nil {
+			fmt.Println("Server.Start error", err)
+		}
+	}()
+}
+
+func (s *Server) Stop() error {
+	return s.udp.Shutdown()
 }
 
 func createUDPServer() *dns.Server {
@@ -48,8 +57,10 @@ const rdnsSuf string = ".in-addr.arpa"
 
 func (s *Server) OnRequest(w dns.ResponseWriter, request *dns.Msg) {
 	q := request.Question[0]
+
 	m := new(dns.Msg)
 	m.SetReply(request)
+
 	if q.Qtype == dns.TypePTR || q.Qtype == dns.TypeA {
 		cname := strings.TrimSuffix(strings.ToLower(q.Name), ".")
 		exists := false

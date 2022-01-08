@@ -2,7 +2,6 @@ package redis
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/go-redis/redis/v8"
@@ -15,12 +14,11 @@ type Client struct {
 	client *redis.Client
 	ctx    context.Context
 	cancel context.CancelFunc
-	hosts  *map[string]config.HostConfig
 	cache  *cache.Cache
 }
 
 // New creates a new redis client
-func New(cfg *config.RedisConfig, hosts *map[string]config.HostConfig, cache *cache.Cache) (*Client, error) {
+func New(cfg *config.RedisConfig, cache *cache.Cache) (*Client, error) {
 	rdb := redis.NewClient(&redis.Options{
 		Addr:            cfg.Address,
 		Username:        cfg.Username,
@@ -38,7 +36,6 @@ func New(cfg *config.RedisConfig, hosts *map[string]config.HostConfig, cache *ca
 			client: rdb,
 			ctx:    ctx,
 			cancel: cancel,
-			hosts:  hosts,
 			cache:  cache,
 		}
 		return res, nil
@@ -52,24 +49,8 @@ func (c *Client) Close() {
 	c.cancel()
 }
 
-func (c *Client) Start() {
-	go func() {
-		ticker := time.NewTicker(c.cfg.Intervall)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-ticker.C:
-				c.poll()
-			case <-c.ctx.Done():
-				fmt.Println("Redis Client stop")
-				return
-			}
-		}
-	}()
-}
-
-func (c *Client) poll() {
-	for hostname, host := range *c.hosts {
+func (c *Client) Poll(hosts *map[string]config.HostConfig) {
+	for hostname, host := range *hosts {
 		c.pollHost(hostname, host)
 	}
 }
