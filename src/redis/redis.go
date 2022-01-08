@@ -78,7 +78,7 @@ func (c *Client) pollHost(hostname string, host config.HostConfig) {
 	found := false
 	for _, mac := range host.Mac {
 		ip, err := c.client.Get(c.ctx, mac).Result()
-		if err == nil {
+		if err == redis.Nil {
 			c.cache.Update(hostname, ip)
 			found = true
 			break
