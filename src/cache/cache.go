@@ -20,20 +20,22 @@ func New() *Cache {
 }
 
 func (c *Cache) Update(hostname, ip string) {
-	c.Delete(hostname)
+	ihn := strings.ToLower(hostname)
+	c.Delete(ihn)
 
 	if revIp, revErr := reverseIP(ip); revErr == nil {
 		c.lock.Lock()
-		c.dns[hostname] = ip
-		c.rdns[revIp] = hostname
+		c.dns[ihn] = ip
+		c.rdns[revIp] = ihn
 		c.lock.Unlock()
 	}
 }
 
 func (c *Cache) Delete(hostname string) {
-	if oip, dok := c.dns[hostname]; dok {
+	ihn := strings.ToLower(hostname)
+	if oip, dok := c.dns[ihn]; dok {
 		c.lock.Lock()
-		delete(c.dns, hostname)
+		delete(c.dns, ihn)
 		revIp, _ := reverseIP(oip)
 		if _, rok := c.rdns[revIp]; rok {
 			delete(c.rdns, revIp)
