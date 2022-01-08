@@ -58,6 +58,9 @@ func (c *Client) Poll(hosts *map[string]config.HostConfig) {
 	for hostname, host := range *hosts {
 		c.pollHost(hostname, host)
 	}
+	if c.cfg.Verbose {
+		c.cache.Print()
+	}
 }
 
 func (c *Client) pollHost(hostname string, host config.HostConfig) {

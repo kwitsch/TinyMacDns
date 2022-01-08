@@ -14,6 +14,7 @@ type Server struct {
 	cache   *cache.Cache
 	ttl     uint32
 	verbose bool
+	Error   chan (error)
 }
 
 func New(cache *cache.Cache, ttl int, verbose bool) *Server {
@@ -22,6 +23,7 @@ func New(cache *cache.Cache, ttl int, verbose bool) *Server {
 		cache:   cache,
 		ttl:     uint32(ttl),
 		verbose: verbose,
+		Error:   make(chan error, 1),
 	}
 
 	handler := res.udp.Handler.(*dns.ServeMux)
@@ -32,16 +34,12 @@ func New(cache *cache.Cache, ttl int, verbose bool) *Server {
 
 func (s *Server) Start() {
 	go func() {
-		err := s.udp.ListenAndServe()
-		if err != nil {
-			fmt.Println("Server.Start error", err)
-			panic(err)
-		}
+		s.Error <- s.udp.ListenAndServe()
 	}()
 }
 
-func (s *Server) Stop() error {
-	return s.udp.Shutdown()
+func (s *Server) Stop() {
+	s.udp.Shutdown()
 }
 
 func createUDPServer() *dns.Server {
@@ -84,7 +82,7 @@ func (s *Server) OnRequest(w dns.ResponseWriter, request *dns.Msg) {
 					Ttl:    s.ttl,
 				}
 
-				rr.Ptr = val
+				rr.Ptr = fmt.Sprintf("%s.", val)
 
 				m.Answer = []dns.RR{rr}
 			}
@@ -108,8 +106,6 @@ func (s *Server) OnRequest(w dns.ResponseWriter, request *dns.Msg) {
 		if !exists {
 			m.SetRcode(request, dns.RcodeNameError)
 		}
-	} else {
-		m.SetRcode(request, dns.RcodeRefused)
 	}
 	w.WriteMsg(m)
 }

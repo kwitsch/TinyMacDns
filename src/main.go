@@ -21,28 +21,31 @@ func main() {
 
 		redis, rErr := redis.New(&cfg.Redis, cache)
 		if rErr == nil {
+			defer redis.Close()
 			fmt.Println("Server starting")
 
 			server := server.New(cache, int(cfg.Redis.Intervall.Seconds()), cfg.Verbose)
+			defer server.Stop()
 			server.Start()
 
 			ticker := time.NewTicker(cfg.Redis.Intervall)
+			defer ticker.Stop()
 
 			intChan := make(chan os.Signal, 1)
 			signal.Notify(intChan, os.Interrupt)
+			defer close(intChan)
 
 			redis.Poll(&cfg.Hosts)
 
 			for {
 				select {
+				case sErr := <-server.Error:
+					fmt.Println(sErr)
+					os.Exit(3)
 				case <-ticker.C:
 					redis.Poll(&cfg.Hosts)
 				case <-intChan:
 					fmt.Println("Server stopping")
-					server.Stop()
-					ticker.Stop()
-					redis.Close()
-					close(intChan)
 					os.Exit(0)
 				}
 			}

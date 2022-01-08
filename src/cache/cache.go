@@ -58,6 +58,17 @@ func (c *Cache) GetHostname(reverseIP string) (string, bool) {
 	return hostname, ok
 }
 
+func (c *Cache) Print() {
+	fmt.Println("dns cache:")
+	for n, v := range c.dns {
+		fmt.Println("-", n, "=", v)
+	}
+	fmt.Println("rdns cache:")
+	for n, v := range c.rdns {
+		fmt.Println("-", n, "=", v)
+	}
+}
+
 func reverseIP(ip string) (string, error) {
 	parts := strings.Split(ip, ".")
 	if len(parts) == 4 {
