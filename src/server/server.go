@@ -11,6 +11,7 @@ import (
 
 type Server struct {
 	udp     *dns.Server
+	tcp     *dns.Server
 	cache   *cache.Cache
 	ttl     uint32
 	verbose bool
@@ -20,14 +21,14 @@ type Server struct {
 func New(cache *cache.Cache, ttl int, verbose bool) *Server {
 	res := &Server{
 		udp:     createUDPServer(),
+		tcp:     createTCPServer(),
 		cache:   cache,
 		ttl:     uint32(ttl),
 		verbose: verbose,
-		Error:   make(chan error, 1),
+		Error:   make(chan error, 2),
 	}
 
-	handler := res.udp.Handler.(*dns.ServeMux)
-	handler.HandleFunc(".", res.OnRequest)
+	res.setupHandlers()
 
 	return res
 }
@@ -36,10 +37,21 @@ func (s *Server) Start() {
 	go func() {
 		s.Error <- s.udp.ListenAndServe()
 	}()
+	go func() {
+		s.Error <- s.tcp.ListenAndServe()
+	}()
 }
 
 func (s *Server) Stop() {
 	s.udp.Shutdown()
+}
+
+func (s *Server) setupHandlers() {
+	uh := s.udp.Handler.(*dns.ServeMux)
+	uh.HandleFunc(".", s.OnRequest)
+
+	th := s.tcp.Handler.(*dns.ServeMux)
+	th.HandleFunc(".", s.OnRequest)
 }
 
 func createUDPServer() *dns.Server {
@@ -51,6 +63,17 @@ func createUDPServer() *dns.Server {
 			fmt.Println("UDP server is up and running")
 		},
 		UDPSize: 65535,
+	}
+}
+
+func createTCPServer() *dns.Server {
+	return &dns.Server{
+		Addr:    ":53",
+		Net:     "tcp",
+		Handler: dns.NewServeMux(),
+		NotifyStartedFunc: func() {
+			fmt.Println("TCP server is up and running")
+		},
 	}
 }
 
